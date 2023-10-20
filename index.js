@@ -1,8 +1,11 @@
 const express = require('express');
-const mysql = require('mysql2'); // Import the mysql2 library
+const mysql = require('mysql2');
 const bodyParser = require('body-parser');
-const User = require('./models/userModel');
+const admin = require('firebase-admin'); // Import the Firebase Admin SDK
 const cors = require('cors');
+const User = require('./models/userModel');
+
+
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -14,12 +17,15 @@ const corsOptions = {
   allowedHeaders: 'Content-Type, Authorization', // Specify allowed headers
 };
 app.use(cors(corsOptions));
+
+
 const db = mysql.createConnection({
   host: 'localhost',
   user: 'root',
   password: 'root',
-  database: 'pushnotification',                                                                                                                                   
+  database: 'pushnotification',
 });
+
 
 db.connect((err) => {
   if (err) {
@@ -31,28 +37,17 @@ db.connect((err) => {
 
 app.use(bodyParser.json());
 
-// Create a new user
-// app.post('/api/users', async (req, res) => {
-//   try {
-//     const { token, id, phoneNumber } = req.body;
-//     if (!token || !id || !phoneNumber) {
-//       return res.status(400).json({ message: 'Please provide all required fields' });
-//     }
 
-//     // Use SQL queries to insert data into MySQL
-//     db.query('INSERT INTO users (token, id, phoneNumber) VALUES (?, ?, ?)', [token, id, phoneNumber], (error, results) => {
-//       if (error) {
-//         res.status(400).json({ message: 'Error creating the user' });
-//         // res.json({token,id,phoneNumber});
-//         console.log(token,id,phoneNumber);
-//       } else {
-//         res.status(201).json({ token, id, phoneNumber });
-//       }
-//     });
-//   } catch (error) {
-//     res.json({ message: 'Error creating the user' });
-//   }
-// });
+// Initialize the Firebase Admin SDK with your service account credentials
+const serviceAccount = require("./service-account-key.json"); // Replace with the path to your service account key JSON file
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+  databaseURL: 'https://pushnotification-bbb51-default-rtdb.firebaseio.com', // Replace with your Firebase project's database URL
+});
+
+app.use(bodyParser.json());
+
 app.post('/api/users', (req, res) => {
   const { token, id, phoneNumber } = req.body;
 
@@ -60,31 +55,54 @@ app.post('/api/users', (req, res) => {
     return res.status(400).json({ message: 'Please provide all required fields' });
   }
 
-  // Use SQL queries to insert data into MySQL
-db.query(
-  'INSERT INTO users (token, id, phoneNumber) VALUES (?, ?, ?)',
-  [token, id, phoneNumber],
-  (error, results) => {
-    if (error) {
-      if (error.code === 'ER_DUP_ENTRY') {
-        // Handle the case where the token is a duplicate
-        console.error('Duplicate token:', token);
-        res.status(400).json({ message: 'Token already exists' });
+  db.query(
+    'INSERT INTO users (token, id, phoneNumber) VALUES (?, ?, ?)',
+    [token, id, phoneNumber],
+    (error, results) => {
+      if (error) {
+        if (error.code === 'ER_DUP_ENTRY') {
+          console.error('Duplicate token:', token);
+          res.status(400).json({ message: 'Token already exists' });
+        } else {
+          console.error('Error creating the user:', error);
+          res.status(400).json({ message: 'Error creating the user' });
+        }
       } else {
-        // Handle other database errors
-        console.error('Error creating the user:', error);
-        res.status(400).json({ message: 'Error creating the user' });
+        console.log('User created:', { token, id, phoneNumber });
+        res.status(201).json({ token, id, phoneNumber });
       }
-    } else {
-      console.log('User created:', { token, id, phoneNumber });
-      res.status(201).json({ token, id, phoneNumber });
     }
-  }
-);
-
+  );
 });
+
+app.post('/send-notification', async (req, res) => {
+  const { token, data } = req.body;
+
+  if (!token) {
+    return res.status(400).json({ message: 'Token is required' });
+  }
+
+  try {
+    const message = {
+      notification: {
+        title: 'Your Notification Title',
+        body: 'Your Notification Body',
+      },
+      data: data,
+      token: token,
+    };
+
+    const response = await admin.messaging().send(message);
+
+    console.log('Successfully sent message:', response);
+    res.status(200).json({ message: 'Notification request sent successfully' });
+  } catch (error) {
+    console.error('Error sending FCM message:', error);
+    res.status(500).json({ message: 'Error sending FCM message' });
+  }
+});
+
 app.get('/api/user', (req, res) => {
-  // Fetch data from MySQL and send it as JSON
   db.query('SELECT * FROM users', (error, results) => {
     if (error) {
       res.status(500).json({ error: 'Database error' });
@@ -93,6 +111,7 @@ app.get('/api/user', (req, res) => {
     }
   });
 });
+
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });

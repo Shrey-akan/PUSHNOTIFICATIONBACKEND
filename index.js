@@ -85,8 +85,8 @@ app.post('/send-notification', async (req, res) => {
   try {
     const message = {
       notification: {
-        title: 'Your Notification Title',
-        body: 'Your Notification Body',
+        title: 'Jay shree shyam ji baba ki jai ho mata di jai ho jai ho  ',
+        body: 'Hello',
       },
       data: data,
       token: token,

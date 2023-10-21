@@ -10,7 +10,7 @@ const User = require('./models/userModel');
 const app = express();
 const port = process.env.PORT || 3000;
 const corsOptions = {
-  origin: 'http://localhost:3001', // Set the allowed origin (the URL of your React frontend)
+  origin: 'https://rocknwoods.website:3001', // Set the allowed origin (the URL of your React frontend)
   methods: 'GET,HEAD,PUT,PATCH,POST,DELETE', // Specify allowed HTTP methods
   preflightContinue: false, // Disable preflight requests
   optionsSuccessStatus: 204, // Set the status code for successful preflight requests

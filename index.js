@@ -4,19 +4,29 @@ const bodyParser = require('body-parser');
 const admin = require('firebase-admin'); // Import the Firebase Admin SDK
 const cors = require('cors');
 const User = require('./models/userModel');
-
-
+const fs = require('fs');
+const https =  require('https');
 
 const app = express();
 const port = process.env.PORT || 3000;
 const corsOptions = {
-  origin: 'https://rocknwoods.website:3001', // Set the allowed origin (the URL of your React frontend)
+  origin: ['https://rocknwoods.website:3001','http://localhost:3001'], // Set the allowed origin (the URL of your React frontend)
   methods: 'GET,HEAD,PUT,PATCH,POST,DELETE', // Specify allowed HTTP methods
   preflightContinue: false, // Disable preflight requests
   optionsSuccessStatus: 204, // Set the status code for successful preflight requests
   allowedHeaders: 'Content-Type, Authorization', // Specify allowed headers
+  credential:true
 };
 app.use(cors(corsOptions));
+
+
+const privkey = fs.readFileSync('/etc/letsencrypt/live/rocknwoods.website/privkey.pem','utf-8');
+const certificate = fs.readFileSync('/etc/letsencrypt/live/rocknwoods.website/fullchain.pem','utf-8');
+const credential ={
+  key:privkey,
+  cert:certificate
+};
+
 
 
 const db = mysql.createConnection({
@@ -112,6 +122,9 @@ app.get('/api/user', (req, res) => {
   });
 });
 
-app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
-});
+
+
+const httpsServer = https.createServer(credential,app);
+httpsServer.listen(3000,()=>{
+  console.log("server started on 3000");
+})
